@@ -1,0 +1,308 @@
+// This file is part of www.nand2tetris.org
+// and the book "The Elements of Computing Systems"
+// by Nisan and Schocken, MIT Press.
+// File name: projects/12/Screen.jack
+
+/**
+ * A library of functions for displaying graphics on the screen.
+ * The Hack physical screen consists of 512 rows (indexed 0..511, top to bottom)
+ * of 256 pixels each (indexed 0..255, left to right). The top left pixel on 
+ * the screen is indexed (0,0).
+ */
+class Screen 
+{
+    static Array twoToThe;
+    static Array neg_twoToThe;
+    static boolean color;
+
+    /** Initializes the Screen. */
+    function void init() 
+    {
+        // set up the bit array for bit manipulation
+        do Screen.init_bit_array();
+        do Screen.init_neg_bit_array();
+        // set the color to black
+        do Screen.setColor(true);
+        return;
+    }
+
+    function void init_bit_array() 
+    {
+        var int i, n;     
+        let twoToThe = Array.new(16); 
+        let i = 0;
+
+        let n = 1;
+        while (i < 16)           
+        {
+            let twoToThe[i] = Math.abs(n);
+            let n = Math.abs(n + n); 
+            let i = i + 1; 
+        }
+        return;    
+    }  
+
+    function void init_neg_bit_array() 
+    {
+        var int i, n;     
+        let neg_twoToThe = Array.new(16); 
+        let i = 0;
+
+        let n = 1;
+        while (i < 16)           
+        {
+            let neg_twoToThe[i] = Math.abs(n) * (-1);
+            let n = Math.abs(n + n);  
+            let i = i + 1; 
+        }
+        return;     
+    } 
+
+    function int bit(inx x, int i) 
+    {
+        // test if a number has bit i set by ANDing it with twoToThe[i]
+        var boolean test;
+        var int result;
+        let test = x & twoToThe[i];     
+
+        if(test = twoToThe[i]) 
+        {
+            return 1;
+        }
+        else
+        {
+            return 0; 
+        }   
+    }
+
+    /** Erases the entire screen. */
+    function void clearScreen() 
+    {
+        return;
+    }
+
+    /** Sets the current color, to be used for all subsequent drawXXX commands.
+     *  Black is represented by true, white by false. */
+    function void setColor(boolean b) 
+    {
+        if(b)
+        {
+            let color = true;
+        }
+        else 
+        {
+            let color = false; 
+        }
+        return;
+    }
+
+    /** Draws the (x,y) pixel, using the current color. */
+    function void drawPixel(int x, int y) 
+    {
+        var int address; 
+        var int value, ONvalue, OFFvalue; 
+        var int bit;
+
+        // get the exact address in memory
+        let address = (32 * y) + (x / 16) + 16384;  
+        // look up the 16 bit word to be manipulated
+        let value = Memory.peek(address); 
+        // calculate the exact bit to be manipulated
+        let bit = Screen.modulo(x, 16);
+        // calulate the new 16 bit word
+        let ONvalue = (twoToThe[bit] | value);
+        let OFFvalue = (neg_twoToThe[bit + 1] & value);
+        // manipulate the bit if color is black  
+        if(color)
+        { 
+            do Memory.poke(address, ONvalue);
+        }
+        else
+        {
+            do Memory.poke(address, OFFvalue);  
+        }
+        return; 
+    }
+    
+    function void drawLineLow(int x0, int y0, int x1, int y1) 
+    {
+        var int dx, dy, x, y, D, yi;
+        let dx = x1 - x0;
+        let dy = y1 - y0;
+        let yi = 1;
+
+        if (dy < 0)
+        {
+            let yi = -1;
+            let dy = -dy;
+        }
+        let D = (2 * dy) - dx;
+        let y = y0;
+
+        
+        //for x from x0 to x1
+        let x = x0;
+        while((x < x1) | (x = x1))
+        {
+            do Screen.drawPixel(x, y);
+            if (D > 0)
+            {
+                let y = y + yi;
+                let D = D - (2 * dx);
+            }
+            let D = D + (2 * dy);
+            let x = x + 1;
+        }
+        return;
+    }
+
+    function void drawLineHigh(int x0, int y0, int x1, int y1)  
+    {
+        var int dx, dy, x, y, D, xi;
+        let dx = x1 - x0;
+        let dy = y1 - y0;
+        let xi = 1;
+
+        if (dx < 0)
+        {
+            let xi = -1;
+            let dx = -dx;
+        }
+        let D = (2 * dx) - dy;
+        let x = x0;
+        
+        //for y from y0 to y1
+        let y = y0;
+        while((y < y1) | (y = y1))
+        {
+            do Screen.drawPixel(x,y);
+            if (D > 0)
+            {   
+                let x = x + xi;
+                let D = D - (2 * dy);
+            }
+            let D = D + (2 * dx);
+            let y = y + 1;
+        }
+        return;
+    } 
+
+    /** Draws a line from pixel (x1,y1) to pixel (x2,y2), using the current color. */
+    function void drawLine(int x0, int y0, int x1, int y1) 
+    { 
+        // with help from: https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm
+        if (Math.abs(y1 - y0) < Math.abs(x1 - x0))
+        {
+            if (x0 > x1)
+            {
+                do Screen.drawLineLow(x1, y1, x0, y0);
+            }
+            else 
+            {
+                do Screen.drawLineLow(x0, y0, x1, y1);
+            }
+        }
+        else
+        {
+            if (y0 > y1)
+            {
+                do Screen.drawLineHigh(x1, y1, x0, y0);
+            }
+            else 
+            {
+                do Screen.drawLineHigh(x0, y0, x1, y1); 
+            }
+        } 
+        return;
+    }
+ 
+    /** Draws a filled rectangle whose top left corner is (x1, y1)
+     * and bottom right corner is (x2,y2), using the current color. */
+    function void drawRectangle(int x1, int y1, int x2, int y2) 
+    {
+        var int x, y;
+
+        let x = x1;
+        let y = y1; 
+
+        while(y < (y2 + 1))
+        {
+            do Screen.drawLine(x1, y, x2, y); 
+            let y = y + 1; 
+        }
+        return; 
+    }
+
+    /** Draws a filled circle of radius r<=181 around (x,y), using the current color. */
+    function void drawCircle(int x_centre, int y_centre, int r) 
+    {
+        // with help from: https://www.geeksforgeeks.org/mid-point-circle-drawing-algorithm/ 
+        var int x, y, P, found;
+        let x = r;
+        let y = 0; 
+        let found = 0;
+      
+        // Printing the initial point on the axes after translation 
+        do Screen.drawPixel(x + x_centre, y + y_centre);
+        
+        // When radius is zero only a single point will be printed 
+        if (r > 0) 
+        { 
+            do Screen.drawPixel(x + x_centre, -y + y_centre);
+            //do Screen.drawPixel(y + x_centre, x + y_centre); 
+            //do Screen.drawPixel(-y + x_centre, x + y_centre); 
+            do Screen.drawLine(-y + x_centre,x + y_centre, y + x_centre, x + y_centre);
+        } 
+        
+        // Initialising the value of P 
+        let P = 1 - r;  
+        while ((x > y) | (found = 0)) 
+        {  
+            let y = y + 1; 
+            
+            // Mid-point is inside or on the perimeter 
+            if (P < 1) 
+            {
+                let P = P + (2 * y) + 1; 
+            }
+            // Mid-point is outside the perimeter 
+            else
+            { 
+                let x = x - 1; 
+                let P = P + (2 * y) - (2 * x) + 1; 
+            } 
+            
+            // All the perimeter points have already been printed 
+            if (x < y) 
+            {
+                let found = 1; 
+            }
+
+            // Printing the generated point and its reflection in the other octants after translation 
+            //do Screen.drawPixel(x + x_centre, y + y_centre); 
+            //do Screen.drawPixel(-x + x_centre, y + y_centre); 
+            do Screen.drawLine(-x + x_centre,y + y_centre, x + x_centre, y + y_centre);
+            //do Screen.drawPixel(x + x_centre, -y + y_centre); 
+            //do Screen.drawPixel(-x + x_centre, -y + y_centre); 
+            do Screen.drawLine(-x + x_centre,-y + y_centre, x + x_centre, -y + y_centre); 
+            
+            // If the generated point is on the line x = y then the perimeter points have already been printed 
+            if (~(x = y))  
+            { 
+                //do Screen.drawPixel(y + x_centre, x + y_centre); 
+                //do Screen.drawPixel(-y + x_centre, x + y_centre); 
+                do Screen.drawLine(-y + x_centre,x + y_centre, y + x_centre, x + y_centre);
+                //do Screen.drawPixel(y + x_centre, -x + y_centre); 
+                //do Screen.drawPixel(-y + x_centre, -x + y_centre);   
+                do Screen.drawLine(-y + x_centre, -x + y_centre, y + x_centre, -x + y_centre);
+            } 
+        }  
+        return;
+    }
+
+    function int modulo(int a, int b)
+    {
+        // with hep from: https://stackoverflow.com/a/2661001
+        return a - (b * (a / b)); 
+    }
+}

@@ -1,0 +1,107 @@
+// This file is part of www.nand2tetris.org
+// and the book "The Elements of Computing Systems"
+// by Nisan and Schocken, MIT Press.
+// File name: projects/12/Memory.jack
+
+/**
+ * This library provides two services: direct access to the computer's main
+ * memory (RAM), and allocation and recycling of memory blocks. The Hack RAM
+ * consists of 32,768 words, each holding a 16-bit binary number.
+ */ 
+class Memory 
+{
+    // with help from: http://nand2tetris-questions-and-answers-forum.32033.n3.nabble.com/Memory-alloc-and-deAlloc-td4031915.html#a4031917
+    // with help from: http://nand2tetris-questions-and-answers-forum.32033.n3.nabble.com/Linked-List-and-alloc-td4031776.html
+    static Array ram; // ram pointer for peek and poke
+    static Array heap; // Heap base pointer
+    static Array freeList; // Free List head pointer 
+    static Array block;
+    static Array tracker;
+    
+    // keep track of pointers to block and next
+    static int BLOCK_SIZE;   // = 0
+    static int NEXT_BLOCK;  // = 1;
+    static int available_space;  // = 2;
+
+    /** Initializes the class. */
+    function void init() 
+    {
+        // peak and poke
+        let ram = 0; 
+
+        // variable names
+        let NEXT_BLOCK = 0;
+        let BLOCK_SIZE = 1;
+        
+        // heap management
+        let heap = 2048; // set to heap base
+
+        // Initialize heap as one large block.
+        let block = heap;
+        let block[NEXT_BLOCK] = 0;
+        let block[BLOCK_SIZE] = 14334;    // 14K-2
+        
+        // Put the block on the free list.
+        let freeList = block;
+        let available_space = freeList[BLOCK_SIZE];
+        let tracker = freeList;
+        return;
+    }
+
+    /** Returns the RAM value at the given address. */
+    function int peek(int address) 
+    {
+        return ram[address];
+    }
+
+    /** Sets the RAM value at the given address to the given value. */
+    function void poke(int address, int value) 
+    {
+        let ram[address] = value;
+        return;
+    }
+
+    /** Finds an available RAM block of the given size and returns
+     *  a reference to its base address. */
+    function int alloc(int size) 
+    {
+        var int found, tracked_size;
+        let found = 0;
+        while(found = 0) 
+        {
+            if(tracker[BLOCK_SIZE] > size)
+            {
+                // give the user a block
+                let block = tracker;
+                let block[NEXT_BLOCK] = 0;
+                let block[BLOCK_SIZE] = size;
+                // change size of current tracker
+                let available_space = available_space - size - 2;
+                // move the tracker
+                let tracker = tracker + size + 2;
+                let tracker[NEXT_BLOCK] = 0;
+                let tracker[BLOCK_SIZE] = available_space;
+                // break out of the loop
+                let found = 1;
+            }
+            else 
+            {
+                if(tracker[NEXT_BLOCK] > 0)
+                {
+                    let tracker = tracker[NEXT_BLOCK];
+                }
+            }
+        }
+        return block + 2;
+    }
+
+    /** De-allocates the given object (cast as an array) by making
+     *  it available for future allocations. */
+    function void deAlloc(Array object) 
+    {
+        var Array segment; 
+        let segment = object - 2;
+        let tracker[NEXT_BLOCK] = segment[0];
+        return; 
+    }    
+}
