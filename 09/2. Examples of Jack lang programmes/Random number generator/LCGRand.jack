@@ -1,0 +1,96 @@
+/* LCGRand.jack, released under the BSD 2-Clause License, also known as Simplified BSD or FreeBSD License"
+ * Copyright (c) 2013, Rowan Limb
+ * All rights reserved.
+ * This software implements a PRNG based on Linear Congruential Generator (Schrage Method).
+ * Based on method documented here: http://www.cems.uwe.ac.uk/~irjohnso/coursenotes/ufeen8-15-m/p1192-parkmiller.pdf
+ * and using constants for A and M from  "Tables of Linear Congruential Generators of Different Sizes and Good Lattice Structure" by Pierre L'Ecuyer, 1999 (citeseer: http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.34.1024)
+ *
+ * Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+ *
+ * Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+ * Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ *
+ * Converted to an instantiatable object and included mod() from Utils.jack
+ * by Mark Armbrust, 19 May 2016.
+*/
+
+class LCGRand {
+    field int seed;
+    static int A;
+    static int M;
+    static int Q;
+    static int R;
+
+    /* Construct a new LCG Random number generator. */
+    constructor LCGRand new()
+    {
+        let A=219;
+        let M=32749;
+        let Q=M/A;
+        let R=LCGRand.mod(M,A);
+
+        do setSeed(0);      // Set default seed.
+        return this;
+    }
+
+    /* Deallocate an LCGRand object. */
+    method void dispose()
+    {
+        do Memory.deAlloc(this);
+        return;
+    }
+
+    method void setSeed(int newSeed) {
+        let seed = newSeed;
+        if(seed=0) {
+           let seed=1;
+        }
+        return;
+    }
+
+    /* returns a random int in range 0..(M-1) inclusive */
+    method int rand() {
+        var int test;
+        let test=(A*(LCGRand.mod(seed,Q)))-(R*(seed/Q));
+        if(test<0) {
+           let seed=test+M;
+        }
+        else {
+           let seed=test;
+        }
+        return seed;
+    }
+
+    /* returns a random int in range low..high inclusive */
+    method int randRange(int low, int high) {
+       var int scale;
+       var int r;
+       let scale = (M / ((high - low) + 1));
+       let r = (rand() / scale) + low;
+
+       // =r= can be greater than =high= because =scale= suffers from integer
+       // truncation.  The correct calculation should be
+       //    r = MulDiv(rand(), high+1 - low, M) + low
+       // Where MulDiv(a, b, c) multiplies 16-bit =a= by 16-bit =b= giving 32 bit
+       // result, then divides 32 bit result by 16-bit =c=.
+       //
+       // MulDiv is hard to implement in Jack, so the cheap fix is to try again
+       // if the number was too big.
+
+       while (r > high) {
+          let r = (rand() / scale) + low;
+          }
+       return r;
+    }
+
+    /* returns a % b */
+    function int mod(int a, int b) {
+        var int d;
+        var int r;
+        let d = Math.divide(a,b);
+        let r = a - (b * d);
+        return r;
+    }
+}

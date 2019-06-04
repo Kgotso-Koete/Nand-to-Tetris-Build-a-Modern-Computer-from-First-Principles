@@ -1,0 +1,657 @@
+// Implementation of project 9. 
+// source: https://inventwithpython.com/invent4thed/chapter10.html    
+/**
+* Implements the Tic Tac Toe game.
+* Tic-Tac-Toe is normally played with two people. One player is X and the other player is O. 
+* Players take turns placing their X or O. If a player gets three of their marks on the board in 
+* a row, column, or diagonal, they win. When the board fills up with neither player winning, 
+* the game ends in a draw. Here is an example of a board representation below:
+*
+* X | X | O
+* O | X | O
+* O | O | X
+*
+* The player makes their move by entering the number of the space they want to take. Per diagram below:
+* 7 | 8 | 9
+* 4 | 5 | 6
+* 1 | 2 | 3  
+
+*/
+
+ class GameBoard 
+ {
+    field Array board; 
+    field Array boardCopy;
+    field Array winning_rows;
+    field Array game_won;
+    field Array possibleMoves;
+    field Array movesList;
+    field LCGRand randomGenerator;
+    field Int computerLetter;
+    field Int playerLetter;
+    field Array cornerPlays;
+    field Array sidePlays;
+    /* game loop fields */
+    field Int exit;
+    field Array letter_choices;
+    field String turn;
+    field Int turnTracker;
+    field boolean gameIsPlaying;
+    field Int move; 
+    field Int playAgain;
+    
+    /* constructor */ 
+    constructor GameBoard new() 
+    {
+      
+      let boardCopy = Array.new(9);
+      let board = Array.new(9);
+      let winning_rows = Array.new(8);
+      let movesList = Array.new(9);
+      let randomGenerator = LCGRand.new();  
+      let cornerPlays = Array.new(4);
+      let sidePlays = Array.new(4);
+      /* game loop fields */
+      let exit = 0;
+      let letter_choices = Array.new(2);
+      let turnTracker = 3;
+ 
+      let movesList[0] = 1; 
+      let movesList[1] = 2; 
+      let movesList[2] = 3; 
+      let movesList[3] = 4; 
+      let movesList[4] = 5; 
+      let movesList[5] = 6; 
+      let movesList[6] = 7; 
+      let movesList[7] = 8;   
+      let movesList[8] = 9;
+
+      let cornerPlays[0] = 1; 
+      let cornerPlays[1] = 3; 
+      let cornerPlays[2] = 7; 
+      let cornerPlays[3] = 9;
+
+      let sidePlays[0] = 2; 
+      let sidePlays[1] = 4; 
+      let sidePlays[2] = 6; 
+      let sidePlays[3] = 8;   
+
+      return this;
+    } 
+    
+    // get methods to access fields from outside the class
+    method Array get_board() { return board;} 
+    method Array get_boardCopy() { return boardCopy;}   
+    method Array get_movesList() { return movesList;}  
+    method Array get_possibleMoves() { return possibleMoves;}   
+    
+    /* disposes of current instance */
+    method void dispose() 
+    {
+      do Memory.deAlloc(this);
+      return;
+    } 
+     
+    /* Represents the board as data from an array per the following scheme with numbers as array indexes
+    * 7 | 8 | 9
+    * 4 | 5 | 6
+    * 1 | 2 | 3 
+    */ 
+    method void drawBoard(Array board)       
+    {
+ 
+      do Output.printChar(board[6]);  
+      do Output.printString(" | ");  
+      do Output.printChar(board[7]); 
+      do Output.printString(" | "); 
+      do Output.printChar(board[8]); 
+      
+      do Output.println();   
+      do Output.println();
+      
+      do Output.printChar(board[3]); 
+      do Output.printString(" | "); 
+      do Output.printChar(board[4]); 
+      do Output.printString(" | "); 
+      do Output.printChar(board[5]); 
+
+      do Output.println();
+      do Output.println();
+      
+      do Output.printChar(board[0]);  
+      do Output.printString(" | "); 
+      do Output.printChar(board[1]); 
+      do Output.printString(" | "); 
+      do Output.printChar(board[2]);  
+
+      do Output.println(); 
+      do Output.println(); 
+      do Output.println(); 
+      do Output.println(); 
+      return; 
+    }
+    
+    /* prints the entire moveset on a board for testing */
+    method void draw_moves(Array board)       
+    {
+ 
+      do Output.printInt(board[6]);  
+      do Output.printString(" | ");  
+      do Output.printInt(board[7]); 
+      do Output.printString(" | "); 
+      do Output.printInt(board[8]); 
+      
+      do Output.println();   
+      do Output.println();
+      
+      do Output.printInt(board[3]); 
+      do Output.printString(" | "); 
+      do Output.printInt(board[4]); 
+      do Output.printString(" | "); 
+      do Output.printInt(board[5]); 
+
+      do Output.println();
+      do Output.println();
+      
+      do Output.printInt(board[0]);  
+      do Output.printString(" | "); 
+      do Output.printInt(board[1]); 
+      do Output.printString(" | "); 
+      do Output.printInt(board[2]);  
+
+      do Output.println(); 
+      do Output.println(); 
+      do Output.println(); 
+      do Output.println(); 
+      return; 
+    }
+
+    /* The inputPlayerLetter() function asks whether the player wants to be X or O */ 
+    method Array inputPlayerLetter() 
+    {
+      var Int key;
+      var Array letter;
+      let letter = Array.new(2);  
+      
+      while (~((letter[0] = 88) | (letter[0] = 79)))
+      {
+        let key = Keyboard.readInt("Do you want to play X (enter 88) or O (enter 79)? ");
+        do Output.println();  
+        do Output.println();  
+
+        if (key = 88)   
+        { 
+          let letter[0] = 88;
+          let letter[1] = 79; 
+          return letter;
+        }   
+        if (key = 79)   
+        { 
+          let letter[0] = 79;
+          let letter[1] = 88;  
+          return letter;
+        }       
+      }  
+      return letter;  
+    }  
+    
+    /*  Does a virtual coin flip to determine whether the computer or the player goes first*/
+    method String whoGoesFirst()  
+    {
+      if (randomGenerator.randRange(0, 1) = 0)
+      {
+        let turnTracker = 0;
+        return "computer"; 
+      }
+      else
+      {
+        let turnTracker = 1;
+        return "player";
+      }
+    }
+
+    /* Allows the player to make a move by applying a letter to any of the board's 9 tiles */
+    method void makeMove(Array board, Int letter, Int move)
+    { 
+      let board[move - 1] = letter;  
+      return; 
+    }   
+    
+    /* checking weather the player won */
+    method Int isWinner(Array board, Int letter)  
+    {
+      // check rows
+      if((board[0] = letter) & (board[1] = letter) & (board[2] = letter)) { let winning_rows[0] = 1;} // Across the bottom
+      if((board[3] = letter) & (board[4] = letter) & (board[5] = letter)) { let winning_rows[1] = 1;}// Across the middle
+      if((board[6] = letter) & (board[7] = letter) & (board[8] = letter)) { let winning_rows[2] = 1;} // Across the top
+
+      // check columns
+      if((board[0] = letter) & (board[3] = letter) & (board[6] = letter)) { let winning_rows[3] = 1;} //Down the left side
+      if((board[1] = letter) & (board[4] = letter) & (board[7] = letter)) { let winning_rows[4] = 1;} // Down the middle
+      if((board[2] = letter) & (board[5] = letter) & (board[8] = letter)) { let winning_rows[5] = 1;} // Down the right
+
+      // check diagonals
+      if((board[0] = letter) & (board[4] = letter) & (board[8] = letter)) { let winning_rows[6] = 1;} // Diagonal 
+      if((board[2] = letter) & (board[4] = letter) & (board[6] = letter)) { let winning_rows[7] = 1;} //Diagonal
+
+      if( (winning_rows[0] = 1) | (winning_rows[1] = 1) | (winning_rows[2] = 1)  | (winning_rows[3] = 1)  | 
+          (winning_rows[4] = 1) | (winning_rows[5] = 1) | (winning_rows[6] = 1)  | (winning_rows[7] = 1) )
+      {
+        let game_won = 1;
+      }
+      else
+      {
+        let game_won = 0;  
+      }
+    
+      return game_won;
+    }
+    
+    /*  make a copy of a given 10-string list that represents a Tic-Tac-Toe board in the game */
+    method Array getBoardCopy(Array board) 
+    {
+      var Int i;   
+      let i = 0;
+
+      while (i < 9)   
+      {
+        let boardCopy[i] = board[i];
+        let i = i + 1; 
+      }
+
+      return boardCopy;  
+    } 
+    
+    /* returns whether that move is available or not */
+    method Int isSpaceFree(Array board, Int move)  
+    { 
+      var Int free;  
+      if(board[move - 1] = null)  
+      {
+        let free = 1;
+      }
+      else
+      {
+        let free = 0; 
+      } 
+
+      return free;
+    }
+       
+    /* checks if a move is part of the set of valid plays (tiles 1-9)  */
+    method Int isValidmove(Int move) 
+    {
+      var Int isValid;
+  
+      let isValid = 0;  
+      
+      if ( (move = 1) | (move = 2) | (move = 3) | (move = 4) | (move = 5) | (move = 6) | (move = 7) | (move = 8) | (move = 9) ) 
+      {
+        let isValid = 1;
+      }
+      else 
+      { 
+        let isValid = 0;    
+      }
+       
+      return isValid;
+    } 
+     
+    /* asks the player to enter the number for the space they want to move on */
+    method Int getPlayerMove(Array board)  
+    {
+      var Int move_played;  
+      do Screen.clearScreen(); 
+      do Output.println();  
+      do draw_moves(movesList);   
+      do drawBoard(board); 
+      let move_played = Keyboard.readInt("What is your next move? (1-9), per the move set above: "); 
+          
+      while ( (isValidmove(move_played) = 0) | (isSpaceFree(board,move_played) = 0) )             
+      {   
+        do Screen.clearScreen();  
+        let move_played = Keyboard.readInt("What is your next move? (1-9), per the move set above: ");  
+      }  
+      return move_played;    
+    }
+    
+    
+    /* Returns a valid move from the passed list on the passed board */
+    method Int chooseRandomMoveFromList(Array board, Array movesList)
+    {
+      var Int i;
+      var Int j;
+      var Int k;
+      var Int count;
+      var Int randomIndex;
+      let i = 0;  
+      let j = 0;
+      let k = 0;
+      let count = 0;
+
+
+      while(i < 9)
+      {
+        if ( isSpaceFree(board, movesList[i]) = 1 )
+        {
+          let count = count + 1;
+        }
+        let i = i + 1;
+      }  
+
+      let possibleMoves = Array.new(count);
+
+
+      while(k < 9)
+      {
+        if ( isSpaceFree(board, movesList[k]) = 1 )
+        {
+          if(j < count)
+          {
+            let possibleMoves[j] = movesList[k]; 
+            let j = j + 1;
+          }
+        }
+        let k = k + 1;
+      } 
+ 
+      if (count > 0)
+      {
+        let randomIndex = randomGenerator.randRange(0, count - 1);
+        return possibleMoves[randomIndex];
+      }
+      else
+      {
+        return null;  
+      }
+    }
+    
+    /*  function contains the AI’s code */ 
+    method Int getComputerMove(Array board, Int tempcomputerLetter)  
+    { 
+      var Int i;
+      var Int move;
+      var Int tempplayerLetter;
+
+      // reset keeping track of winning rows 
+      let winning_rows[0] = null;
+      let winning_rows[1] = null;
+      let winning_rows[2] = null;
+      let winning_rows[3] = null;
+      let winning_rows[4] = null; 
+      let winning_rows[5] = null;
+      let winning_rows[6] = null;
+      let winning_rows[7] = null; 
+
+      // reset game won status
+      let game_won = null;
+
+      /* Given a board and the computer's letter, determine where to move and return that move */
+      if (tempcomputerLetter = 88) { let tempplayerLetter = 79;}
+      if (tempcomputerLetter = 79) {let tempplayerLetter = 88;}
+      
+      /*  STEP 1: First, check if the computer can win in the next move */
+      let i = 1; 
+      while(i < 10)
+      {  
+        let boardCopy = getBoardCopy(board);
+        if ( isSpaceFree(boardCopy, i) = 1 )
+        {
+          do makeMove(boardCopy, tempcomputerLetter, i);
+          if (isWinner(boardCopy, tempcomputerLetter) = 1) 
+          {
+            // reset keeping track of winning rows 
+            let winning_rows[0] = null;
+            let winning_rows[1] = null;
+            let winning_rows[2] = null;
+            let winning_rows[3] = null;
+            let winning_rows[4] = null; 
+            let winning_rows[5] = null;
+            let winning_rows[6] = null;
+            let winning_rows[7] = null; 
+
+            // reset game won status
+            let game_won = null;
+            return i; 
+          }
+        }
+        let i = i + 1; 
+      }
+ 
+
+      /*  STEP 2: Check if the player could win on their next move and block them */
+      let i = 1; 
+      while(i < 10)
+      {  
+        let boardCopy = getBoardCopy(board);
+        if ( isSpaceFree(boardCopy, i) = 1 )
+        {
+          do makeMove(boardCopy, tempplayerLetter, i);
+          if (isWinner(boardCopy, tempplayerLetter) = 1) 
+          {
+            return i; 
+          }
+        }
+        let i = i + 1; 
+      }
+   
+      /* STEP 3: Try to take one of the corners, if they are free */
+      let move = chooseRandomMoveFromList(board, cornerPlays);
+      if (~(move = null))
+      {
+        return move;
+      } 
+    
+      
+      /* STEP 4:Try to take the center, if it is free*/
+      if (isSpaceFree(board, 5) = 1)
+      {
+        return 5; 
+      }   
+
+      /* STEP 5:Move on one of the sides*/
+      return chooseRandomMoveFromList(board, sidePlays);  
+ 
+    }
+    
+
+    /* Return True if every space on the board has been taken. Otherwise, return False. */
+    method Int isBoardFull(Array board)
+    {
+      var Int i;
+
+      let i = 1; 
+      while(i < 10)
+      {  
+        if ( isSpaceFree(board, i) = 1 )
+        {
+          return 0; 
+        }
+        let i = i + 1; 
+      }
+      return 1;  
+    } 
+
+    method void gameLoop()
+    {
+      // greets the player before the game starts 
+      do Output.printString("Welcome to Tic-Tac-Toe!"); do Output.println(); 
+      do Sys.wait(1500); 
+      do Screen.clearScreen(); 
+      
+      while(exit = 0)
+      {
+        // Reset the board
+        let board[0] = null; 
+        let board[1] = null;  
+        let board[2] = null; 
+        let board[3] = null; 
+        let board[4] = null; 
+        let board[5] = null; 
+        let board[6] = null; 
+        let board[7] = null;   
+        let board[8] = null; 
+
+        // reset letters
+        let computerLetter = null;
+        let playerLetter = null; 
+
+        // lets the player enter whether they want to be the X or O 
+        let letter_choices = inputPlayerLetter(); 
+        let playerLetter = letter_choices[0];
+        let computerLetter = letter_choices[1];
+ 
+        // randomly decides who goes first and informs player 
+        let turn = whoGoesFirst();
+        do Screen.clearScreen();  
+        do Output.printString("The "); do Output.printString(turn);do Output.printString(" will go first."); 
+        do Sys.wait(1500);  
+        do Screen.clearScreen();   
+        let gameIsPlaying = true;   
+
+         
+        while(gameIsPlaying)
+        {
+          // reset keeping track of winning rows 
+          let winning_rows[0] = null;
+          let winning_rows[1] = null;
+          let winning_rows[2] = null;
+          let winning_rows[3] = null;
+          let winning_rows[4] = null; 
+          let winning_rows[5] = null;
+          let winning_rows[6] = null;
+          let winning_rows[7] = null; 
+
+          // reset game won status
+          let game_won = null; 
+
+          // run the human's turn 
+          if (turnTracker = 1) 
+          { 
+            
+            let move = getPlayerMove(board);
+            do makeMove(board, playerLetter, move);do Output.println();do Output.println();
+            do drawBoard(board);do Sys.wait(1500); do Screen.clearScreen(); // drawing the board
+
+            // check if the player won
+            if ( (isWinner(board, playerLetter) = 1) )
+            {
+              do Screen.clearScreen(); do Output.println();
+              do drawBoard(board);
+              do Output.printString("Hooray! You have won the game!"); 
+              do Sys.wait(1500); 
+
+              // reset keeping track of winning rows 
+              let winning_rows[0] = null;
+              let winning_rows[1] = null;
+              let winning_rows[2] = null;
+              let winning_rows[3] = null;
+              let winning_rows[4] = null; 
+              let winning_rows[5] = null;
+              let winning_rows[6] = null;
+              let winning_rows[7] = null; 
+
+              // reset game won status
+              let game_won = null;
+
+              let gameIsPlaying = false;
+            }
+            else
+            { 
+              // check if the board is full
+              if (isBoardFull(board) = 1)
+              {
+                do Screen.clearScreen(); do Output.println();
+                do drawBoard(board);
+                do Output.printString("The game is a tie!");  
+                do Sys.wait(1500); 
+                let gameIsPlaying = false;
+              }
+              // let the computer have a turn
+              else
+              {
+                let turnTracker = 0; 
+              }
+            }
+            
+          }
+          
+          // run the computer's turn   
+          if (turnTracker = 0) 
+          {
+             
+            let move = getComputerMove(board, computerLetter);
+
+            // reset keeping track of winning rows 
+            let winning_rows[0] = null;
+            let winning_rows[1] = null;
+            let winning_rows[2] = null;
+            let winning_rows[3] = null;
+            let winning_rows[4] = null; 
+            let winning_rows[5] = null;
+            let winning_rows[6] = null;
+            let winning_rows[7] = null; 
+
+            // reset game won status
+            let game_won = null;
+
+            do makeMove(board, computerLetter, move);    
+            do Output.println(); do Output.printString("Computer playing tile ");do Output.printInt(move); do Output.println(); do Output.println();       
+            do drawBoard(board);do Sys.wait(3000); do Screen.clearScreen(); // drawing the board
+           
+            // check if the computer won
+            if( (isWinner(board, computerLetter) = 1) )
+            {
+              do Screen.clearScreen(); do Output.println();
+              do drawBoard(board);
+              do Output.printString("The computer has beaten you! You lose."); 
+              do Sys.wait(1500);  
+
+              // reset keeping track of winning rows 
+              let winning_rows[0] = null;
+              let winning_rows[1] = null;
+              let winning_rows[2] = null;
+              let winning_rows[3] = null;
+              let winning_rows[4] = null; 
+              let winning_rows[5] = null;
+              let winning_rows[6] = null;
+              let winning_rows[7] = null; 
+
+              // reset game won status
+              let game_won = null; 
+              
+              let gameIsPlaying = false;
+            }
+            else
+            {
+              // check if the board is full  
+              if(isBoardFull(board) = 1)
+              {
+                do Screen.clearScreen(); do Output.println();
+                do drawBoard(board);
+                do Output.printString("The game is a tie!"); 
+                do Sys.wait(1500); 
+                let exit = 1; //break statement  
+              }
+              else
+              {
+                let turnTracker = 1;   
+              }
+            }
+          }
+          
+        } 
+
+        // check if they want to play again  
+        let playAgain =  Keyboard.readInt("Do you want to play again? Yes (enter 1), or No (enter 0)? ");  
+        if(playAgain = 0)
+        { 
+          do Sys.halt(); // break statement 
+        }
+    
+      } 
+
+      return;
+    }   
+
+ }

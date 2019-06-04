@@ -1,0 +1,446 @@
+// Main.jack -- Test program for LFSR32Rand class.
+
+// Copyright (C) 2016 Mark A. Armbrust.
+// Permission granted for educational use.
+
+// Runs various graphical tests comparing results from LFSR32Rand and
+// LCGRand.
+
+class Main {
+    static LCGRand lcg;         // LCG PRNG
+    static LFSR32Rand lfsr;     // LFSR PRNG
+    static int test;            // test type
+    static boolean toggle;      // toggle samples instead of overwriting
+    static int testK;           // requested test length
+    static int numK;            // actual test length (in K)
+    static int numI;            // iterations per numK
+    static int seed1, seed2;
+    static int n1, n2;          // unique sample count
+    static int x, y;            // current sample
+    static int x1, x2, y1, y2;  // random walk location
+    static Array dx, dy;        // random walk deltas
+
+    // For stolen Screen.jack code.
+    static Array screen;
+    static Array bit;
+
+    /** Ask for a test to run and display the results with LCGRand on the
+     *  left and LFSR32Rand on the right.
+     */
+    function void main()
+    {
+        var int i, k;
+        let testK = 16;
+
+        do Main.Screen_init();
+        do Main.makeDxy();
+        let lcg = LCGRand.new();
+        let lfsr = LFSR32Rand.new();
+        // seed1 and seed2 are intentionally not initialized.
+
+        while (true) {
+            do Main.printTests();
+            let test = -1;
+            while (test = -1) {
+                do Main.printStringConst("Choose test...");
+                let k = Main.readCharSpin();
+
+                if ((k > 47) & (k < 52)) {      // '/', '4'
+                    let test = k-48;
+                }
+                else { if (k = 43) {            // '+'
+                    if (testK < 16384) {
+                        let testK = testK*2;
+                    }
+                    do Main.printTests();
+                }
+                else { if (k = 45) {            // '-'
+                    if (testK > 1) {
+                        let testK = testK/2;
+                    }
+                    do Main.printTests();
+                }
+                else { if (k = 88) {            // 'X'
+                    let toggle = ~ toggle;
+                    do Main.printTests();
+                }
+                else {
+                    do Main.printStringConstLn(" ???");
+                }}}}
+            }
+
+            do Screen.clearScreen();
+            do Main.initTest();
+
+            let k = numK;
+            while (k > 0) {
+                let i = numI;
+                while (i > 0) {
+                    do Main.sample(1);
+                    do Main.plot(1);
+
+                    do Main.sample(2);
+                    do Main.plot(2);
+
+                    let i = i-1;
+
+                    if (((i & 31) = 0) & (Keyboard.keyPressed() = 140)) {   // ESC
+                        while (Keyboard.keyPressed() = 140)
+                            {}
+                        let i = 0;
+                        let k = 0;
+                    }
+                }
+                let k = k-1;
+            }
+
+            if (test > 0) {
+                do Main.printUnique(1);
+                do Main.printUnique(2);
+            }
+
+            do Output.moveCursor(22,0);
+            do Main.printStringConst("Hit any key...");
+            do Main.readCharSpin();
+        }
+        return;
+    }
+
+    /** Print test menu */
+    function void printTests()
+    {
+        do Screen.clearScreen();
+        do Output.moveCursor(0, 0);
+        do Main.printStringConstLn("LCGRandom on left, LFSR32Rand on right.");
+        do Main.printStringConstLn("Black pixel count shown at end of test.");
+        do Output.println();
+        do Main.printStringConstLn("0) Print first numbers starting from default seed");
+        do Main.printStringConstLn("1) Plot Uniform distribution");
+        do Main.printStringConstLn("2) Plot Normalish distribution");
+        do Main.printStringConstLn("3) Plot Random walk");
+        do Output.println();
+
+        do Main.printStringConst("+-) Change test length.  Currently ");
+        do Output.printInt(testK);
+        do Main.printStringConstLn("K");
+
+        do Main.printStringConst("X) Change plot mode.  Currently ");
+        if (toggle) {
+            do Main.printStringConstLn("XOR pixels");
+        } else {
+            do Main.printStringConstLn("set pixels");
+        }
+        do Output.println();
+
+        do Main.printStringConstLn("Hit ESC during test to abort.");
+        do Output.println();
+
+        return;
+    }
+
+////////////////////////////////////////////////////////////////////////////////
+// Test functions
+
+    /** Initialize PRNGs and test parameters */
+    function void initTest()
+    {
+        do Main.seedRand(1, false);
+        do Main.seedRand(2, false);
+
+        let numI = 1024;
+        let n1 = 0;
+        let n2 = 0;
+        let y1 = 0;     // text row number
+        let y2 = 0;
+        let x1 = 0;     // text col number
+        let x2 = 0;
+
+        if (test = 0) {     // print rand() values.
+            let numK = 1;
+            let numI = 44;
+            do Main.seedRand(1, true);
+            do Main.seedRand(2, true);
+        }
+        if (test = 1) {     // uniform distribution
+            let numK = testK;
+        }
+        if (test = 2) {     // normal-ish distribution
+            let numK = testK;
+        }
+        if (test = 3) {     // random walk 32K
+            let numK = testK;
+            let x1 = 128;
+            let y1 = 128;
+            let x2 = 128;
+            let y2 = 128;
+        }
+        return;
+    }
+
+    /** Return test sample
+     *  'n' = PRNG -- 1:LCGRand 2:LCSR32
+     */
+    function void sample(int n)
+    {
+
+        var int dir;
+
+        if (test = 0){                      // raw numbers
+            let x = Main.rand(n);
+            let y = Main.rand(n);
+        }
+        if (test = 1) {                     // uniform distribution
+            let x = Main.randRange(n, 0, 255);
+            let y = Main.randRange(n, 0, 255);
+        }
+        if (test = 2) {                     // normal-ish distribution
+            let x = Main.randRange(n, 0, 85) + Main.randRange(n, 0, 85) + Main.randRange(n, 0, 85);
+            let y = Main.randRange(n, 0, 85) + Main.randRange(n, 0, 85) + Main.randRange(n, 0, 85);
+        }
+        if (test = 3) {                     // random walk
+            let dir = Main.rand(n) & 3;
+            if (n = 1) {
+                let x1 = (x1+dx[dir]);
+                if (x1 < 0) { let x1 = 254; }   // left guard column
+                if (x1 > 254) { let x1 = 0; }   // x1 = x1 mod 255
+                let y1 = (y1+dy[dir]) & 255;
+                let x = x1;
+                let y = y1;
+            } else {
+                let x2 = (x2+dx[dir]);
+                if (x2 < 1) { let x2 = 255; }   // right guard column
+                if (x2 > 255) { let x2 = 1; }   // x2 = (x2-1) mod 255 + 1
+                let y2 = (y2+dy[dir]) & 255;
+                let x = x2;
+                let y = y2;
+            }
+        }
+        return;
+    }
+
+    /** Plot (x, y) and update pixel count
+     *  n = screen -- 1: left 2: right
+     */
+    function void plot(int n)
+    {
+        var int d;  // = 0
+
+        if (test = 0) {
+            do Main.print(n);
+            return;
+        }
+
+        if (n = 2) {
+            let x = x+256;
+        }
+        if (~Main.getPixel(x,y)) {
+            let d = 1;
+            do Screen.drawPixel(x, y);
+        }
+        else { if (toggle) {
+            let d = -1;
+            do Screen.setColor(false);
+            do Screen.drawPixel(x, y);
+            do Screen.setColor(true);
+        }}
+
+        if (n=1) {
+            let n1 = n1+d;
+        } else {
+            let n2 = n2+d;
+        }
+        return;
+    }
+
+    /** Print ints x, y
+     *  n = screen -- 1: left 2: right
+     */
+    function void print(int n)
+    {
+        var int r, c, cc;
+
+        if (n = 1) {
+            let r = y1;
+            let c = x1;
+            let cc = c;
+        } else {
+            let r = y2;
+            let c = x2;
+            let cc = c+32;
+        }
+
+        do Output.moveCursor(r, cc);
+        do Output.printInt(x);
+        do Output.moveCursor(r, cc+6);
+        do Output.printInt(y);
+
+        let c = c+12;
+        if (c > 20) {       // 32-12
+            let c = 0;
+            let r = r+1;
+        }
+
+        if (n = 1) {
+            let y1 = r;
+            let x1 = c;
+        } else {
+            let y2 = r;
+            let x2 = c;
+        }
+
+        return;
+    }
+
+    /** Print pixel count (unsigned int)
+     *  n = screen -- 1: left 2: right
+     */
+    function void printUnique(int n)
+    {
+        if (n=1) {
+            do Output.moveCursor(0, 0);
+            do Main.printUnsigned(n1);
+        } else {
+            do Output.moveCursor(0, 32);
+            do Main.printUnsigned(n2);
+        }
+        return;
+    }
+
+    /** Initialize the random walk deltas */
+    function void makeDxy()
+    {
+        let dx = Array.new(4);
+        let dy = Array.new(4);
+        let dx[0] = 0;  let dy[0] = 1;
+        let dx[1] = -1; let dy[1] = 0;
+        let dx[2] = 1;  let dy[2] = 0;
+        let dx[3] = 0;  let dy[3] = -1;
+        return;
+    }
+
+////////////////////////////////////////////////////////////////////////////////
+// PRNGs being tested
+
+    function void seedRand(int n, boolean default)
+    {
+        if (n = 1) {
+            if (default) {
+                do lcg.setSeed(0);
+            } else {
+                do lcg.setSeed(seed1);
+            }
+        } else {
+            if (default) {
+                do lfsr.seed(0, 0);
+            } else {
+                do lfsr.seed(seed1, seed2); }
+            }
+        return;
+    }
+
+    function int rand(int n)
+    {
+        var int r;
+
+        if (n = 1) {
+            let r = lcg.rand();
+        } else {
+            let r = lfsr.rand();
+        }
+        return r;
+    }
+
+    function int randRange(int n, int low, int high)
+    {
+        var int r;
+
+        if (n = 1) {
+            let r = lcg.randRange(low, high);
+        } else {
+            let r = lfsr.randRange(low, high);
+        }
+        return r;
+    }
+
+////////////////////////////////////////////////////////////////////////////////
+// Helper functions
+
+    function char readCharSpin()
+    {
+        while (Keyboard.keyPressed() = 0) {
+            let seed1 = seed1+1;
+            if (seed1 = 0) {
+                let seed2 = seed2+1;
+            }
+        }
+        return Keyboard.readChar();
+    }
+
+    /** Print and dispose a string constant. */
+    function void printStringConst(String strConst)
+    {
+        do Output.printString(strConst);
+        do strConst.dispose();
+        return;
+    }
+
+    /** Print and dispose a string constant followed by a newline. */
+    function void printStringConstLn(String strConst)
+    {
+        do Main.printStringConst(strConst);
+        do Output.println();
+        return;
+    }
+
+    /** Print a 16-bit unsigned int. */
+    function void printUnsigned(int n)
+    {
+        var int d;  // = 0
+        while ((n < 0) | (n > 9999)) {
+            let d = d+1;
+            let n = n-10000;
+        }
+        if (d > 0) {
+            do Output.printChar(48+d);
+            if (n < 1000) {
+                do Output.printChar(48); }
+            if (n < 100) {
+                do Output.printChar(48); }
+            if (n < 10) {
+                do Output.printChar(48); }
+        }
+        do Output.printInt(n);
+        return;
+    }
+
+
+////////////////////////////////////////////////////////////////////////////////
+// Stolen from my Screen.jack.
+
+    /** Initializes the Screen class. */
+    function void Screen_init() {
+        var int i, b;
+        let screen = 16384;
+        let bit = Array.new(16);
+        let i = 0;
+        let b = 1;
+        while (i < 16) {
+            let bit[i] = b;
+            let i = i+1;
+            let b = b+b;
+        }
+        return;
+    }
+
+    /** Read the (x, y) pixel. */
+    function boolean getPixel(int x, int y) {
+        var int b;
+        let b = bit[x&15];
+        let y = (y*32)+(x/16);
+        if ((y > -1) & (y < 8192)) {
+            return ~ ((screen[y] & b) = 0);
+        }
+        return false;
+    }
+
+}

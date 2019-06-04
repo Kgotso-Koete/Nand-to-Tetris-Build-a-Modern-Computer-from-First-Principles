@@ -1,0 +1,46 @@
+// Implementation of project 9. 
+
+/**
+* Implements the Tic Tac Toe game.
+* Tic-Tac-Toe is normally played with two people. One player is X and the other player is O. 
+* Players take turns placing their X or O. If a player gets three of their marks on the board in 
+* a row, column, or diagonal, they win. When the board fills up with neither player winning, 
+* the game ends in a draw. Here is an example of a board representation below:
+*
+* X | X | O
+* O | X | O
+* O | O | X
+*
+* The player makes their move by entering the number of the space they want to take. Per diagram below:
+* 6 | 7 | 8
+* 3 | 4 | 5
+* 0 | 1 | 2  
+
+*/
+
+class Main 
+{ 
+    function void main() 
+    {
+        var GameBoard game;
+        let game = GameBoard.new();  
+        // tests
+       // do game.makeMove(game.get_board(), 88, 1);
+        //do game.makeMove(game.get_board(), 79, 2);
+        //do game.makeMove(game.get_board(), 88, 3); 
+        //do game.makeMove(game.get_board(), 79, 4);
+        //do game.makeMove(game.get_board(), 79, 5);
+        //do game.makeMove(game.get_board(), 79, 6);
+        //do game.makeMove(game.get_board(), 88, 7);
+        //do game.makeMove(game.get_board(), 79, 8); 
+       // do game.makeMove(game.get_board(), 79, 9);  
+       // do game.drawBoard(game.get_board()); 
+       // do Output.printInt(game.isWinner(game.get_board(), 79));
+
+          
+        // game loop
+        do game.gameLoop();   
+        do game.dispose();
+        return; 
+    }
+}  
