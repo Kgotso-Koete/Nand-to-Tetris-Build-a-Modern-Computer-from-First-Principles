@@ -1,0 +1,34 @@
+// This file is part of www.nand2tetris.org
+// and the book "The Elements of Computing Systems"
+// by Nisan and Schocken, MIT Press.
+// File name: projects/03/b/RAM4K.hdl
+
+/**
+ * Memory of 4K registers, each 16 bit-wide. Out holds the value
+ * stored at the memory location specified by address. If load==1, then 
+ * the in value is loaded into the memory location specified by address 
+ * (the loaded value will be emitted to out from the next time step onward).
+ */
+
+CHIP RAM4K {
+    IN in[16], load, address[12];
+    OUT out[16];
+
+    PARTS:
+    // Put your code here:
+    // select which 512-bit RAM chip should have a load change
+    DMux8Way(in=load, sel=address[0..2], a=load1, b=load2, c=load3, d=load4, e=load5, f=load6, g=load7, h=load8); 
+
+    // select which 512-bit RAM chip should broadcast to 'out'
+    Mux8Way16(a=register1, b=register2, c=register3, d=register4, e=register5, f=register6, g=register7, h=register8, sel=address[0..2], out=out);
+    
+    // feed 'in' to all 512-bit RAM chips but only feed it the load if the unique chip has been selected 
+    RAM512(in=in, load=load1, address=address[3..11], out=register1);
+    RAM512(in=in, load=load2, address=address[3..11], out=register2);
+    RAM512(in=in, load=load3, address=address[3..11], out=register3);
+    RAM512(in=in, load=load4, address=address[3..11], out=register4); 
+    RAM512(in=in, load=load5, address=address[3..11], out=register5); 
+    RAM512(in=in, load=load6, address=address[3..11], out=register6); 
+    RAM512(in=in, load=load7, address=address[3..11], out=register7);  
+    RAM512(in=in, load=load8, address=address[3..11], out=register8);    
+}
