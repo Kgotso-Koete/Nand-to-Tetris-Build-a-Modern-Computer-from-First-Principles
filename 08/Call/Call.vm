@@ -1,0 +1,16 @@
+// Call.vm for Call.tst
+//
+// This test assumes NO BOOTSTRAP CODE is present.
+
+// Calls fn with two arguments.
+push constant 123
+push constant 456
+call Call.fn 2
+// fn should not return, but...
+label loop
+goto loop
+
+// Function fn adds its two argument and halts.
+function Call.fn 0
+label halt
+goto halt
